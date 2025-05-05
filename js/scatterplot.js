@@ -17,21 +17,19 @@ d3.csv("data/grocery_survey.csv.csv").then(data => {
     d.Age = +d.Age;
     d.Income = +d.Income;
     d.PurchaseAmount = +d.PurchaseAmount;
+    d.FamilySize = +d.FamilySize;
   });
 
-  // Create scales
   const x = d3.scaleLinear().domain(d3.extent(data, d => d.Age)).range([0, width]);
   const y = d3.scaleLinear().domain(d3.extent(data, d => d.Income)).range([height, 0]);
   const color = d3.scaleSequential(d3.interpolateBlues)
                  .domain(d3.extent(data, d => d.PurchaseAmount));
 
-  // Axes
   svg.append("g").attr("transform", `translate(0,${height})`).call(d3.axisBottom(x));
   svg.append("g").call(d3.axisLeft(y));
   svg.append("text").attr("x", width / 2).attr("y", height + 40).text("Age");
   svg.append("text").attr("transform", "rotate(-90)").attr("y", -40).attr("x", -height / 2).text("Income");
 
-  // Tooltip
   const tooltip = d3.select("body").append("div")
     .style("position", "absolute")
     .style("visibility", "hidden")
@@ -40,10 +38,11 @@ d3.csv("data/grocery_survey.csv.csv").then(data => {
     .style("border-radius", "4px")
     .style("font-size", "12px");
 
-  // Points
+  // Draw dots
   svg.selectAll("circle")
     .data(data)
     .join("circle")
+    .attr("class", "dot")  // Important for interaction
     .attr("cx", d => x(d.Age))
     .attr("cy", d => y(d.Income))
     .attr("r", 5)
@@ -52,15 +51,14 @@ d3.csv("data/grocery_survey.csv.csv").then(data => {
     .on("mouseover", (event, d) => {
       tooltip
         .style("visibility", "visible")
-        .html(`Age: ${d.Age}<br>Income: $${d.Income}<br>Purchase: $${d.PurchaseAmount.toFixed(2)}`);
+        .html(`Age: ${d.Age}<br>Income: $${d.Income}<br>Purchase: $${d.PurchaseAmount.toFixed(2)}<br>Family Size: ${d.FamilySize}`);
     })
     .on("mousemove", event => {
       tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px");
     })
     .on("mouseout", () => tooltip.style("visibility", "hidden"));
-});
 
-  // Add brush
+  // Brushing
   const brush = d3.brush()
     .extent([[0, 0], [width, height]])
     .on("start brush end", brushed);
@@ -69,11 +67,11 @@ d3.csv("data/grocery_survey.csv.csv").then(data => {
 
   function brushed(event) {
     const selection = event.selection;
-    svg.selectAll("circle").attr("stroke", null).attr("opacity", 0.3);
+    svg.selectAll(".dot").attr("stroke", null).attr("opacity", 0.3);
 
     if (selection) {
       const [[x0, y0], [x1, y1]] = selection;
-      svg.selectAll("circle")
+      svg.selectAll(".dot")
         .filter(d =>
           x(d.Age) >= x0 &&
           x(d.Age) <= x1 &&
@@ -84,3 +82,13 @@ d3.csv("data/grocery_survey.csv.csv").then(data => {
         .attr("opacity", 1.0);
     }
   }
+
+  // Interaction from boxplot → scatterplot
+  window.addEventListener("boxplotFamilySelected", (e) => {
+    const selectedFamily = e.detail;
+
+    svg.selectAll(".dot")
+      .attr("opacity", d => d.FamilySize == selectedFamily ? 1 : 0.1)
+      .attr("fill", d => d.FamilySize == selectedFamily ? "orange" : "#ccc");
+  });
+});

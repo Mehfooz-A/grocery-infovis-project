@@ -11,7 +11,6 @@ const boxSvg = d3.select("#boxplot")
   .append("g")
   .attr("transform", `translate(${boxMargin.left},${boxMargin.top})`);
 
-// Load data
 d3.csv("data/grocery_survey.csv.csv").then(data => {
   data.forEach(d => {
     d.FamilySize = +d.FamilySize;
@@ -20,21 +19,19 @@ d3.csv("data/grocery_survey.csv.csv").then(data => {
 
   const familySizes = Array.from(new Set(data.map(d => d.FamilySize))).sort((a, b) => a - b);
 
-  // Group data by FamilySize
   const dataGrouped = familySizes.map(family => {
     const group = data.filter(d => d.FamilySize === family).map(d => d.PurchaseAmount).sort(d3.ascending);
     const q1 = d3.quantile(group, 0.25);
     const median = d3.quantile(group, 0.5);
     const q3 = d3.quantile(group, 0.75);
-    const interQuantileRange = q3 - q1;
-    const min = q1 - 1.5 * interQuantileRange;
-    const max = q3 + 1.5 * interQuantileRange;
+    const iqr = q3 - q1;
+    const min = q1 - 1.5 * iqr;
+    const max = q3 + 1.5 * iqr;
 
     return {
       FamilySize: family,
-      q1, median, q3, interQuantileRange, min, max,
-      outliers: group.filter(v => v < min || v > max),
-      values: group
+      q1, median, q3, iqr, min, max,
+      outliers: group.filter(v => v < min || v > max)
     };
   });
 
@@ -55,7 +52,6 @@ d3.csv("data/grocery_survey.csv.csv").then(data => {
 
   boxSvg.append("g").call(d3.axisLeft(y));
 
-  // Tooltip
   const tooltip = d3.select("body").append("div")
     .style("position", "absolute")
     .style("visibility", "hidden")
@@ -65,7 +61,7 @@ d3.csv("data/grocery_survey.csv.csv").then(data => {
     .style("border-radius", "5px")
     .style("font-size", "12px");
 
-  // Draw boxplots
+  // Draw boxes
   boxSvg.selectAll("boxes")
     .data(dataGrouped)
     .join("rect")
@@ -75,15 +71,21 @@ d3.csv("data/grocery_survey.csv.csv").then(data => {
     .attr("width", x.bandwidth())
     .attr("stroke", "#333")
     .attr("fill", "#69b3a2")
+    .style("cursor", "pointer")
     .on("mouseover", (event, d) => {
       tooltip
         .style("visibility", "visible")
-        .html(`Median: $${d.median.toFixed(2)}<br>Q1: $${d.q1.toFixed(2)}<br>Q3: $${d.q3.toFixed(2)}`);
+        .html(`Click to filter Family Size ${d.FamilySize}<br>Median: $${d.median.toFixed(2)}`);
     })
     .on("mousemove", event => {
       tooltip.style("top", (event.pageY - 10) + "px").style("left", (event.pageX + 10) + "px");
     })
-    .on("mouseout", () => tooltip.style("visibility", "hidden"));
+    .on("mouseout", () => tooltip.style("visibility", "hidden"))
+    .on("click", (event, d) => {
+      window.dispatchEvent(new CustomEvent("boxplotFamilySelected", {
+        detail: d.FamilySize
+      }));
+    });
 
   // Median lines
   boxSvg.selectAll("medianLines")
